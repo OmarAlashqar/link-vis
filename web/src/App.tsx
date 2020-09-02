@@ -76,7 +76,7 @@ const App = () => {
             try {
               const timer = setTimeout(() => {
                 setIsTakingLong(true);
-              }, 10 * 1000);
+              }, 20 * 1000);
 
               const response = await fetch(
                 `${process.env.REACT_APP_API_URL}/crawl?seed=${encodeURI(url)}`

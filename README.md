@@ -15,6 +15,10 @@ The lonely nodes are likely a result of an 11th redirect or possibly a buy in my
 
 ### TODO
 
+- [ ] Cache total results
+- [ ] Cache URL results
+- [ ] Stream partial data as it's being built
+- [ ] Return partial data before it disconnects if a crash will happen
 - [ ] Option for internal links only (site-map generator)
 - [ ] Option for max depth (within limits)
 

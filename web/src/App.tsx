@@ -16,6 +16,8 @@ import { LinkData } from "./types";
 import { FieldError, toErrorMap } from "./utils/toErrorMap";
 import { useWindowSize } from "./utils/useWindowSize";
 
+type AlertStatus = "info" | "error" | "success" | "warning" | undefined;
+
 const App = () => {
   const [isServerError, setServerError] = useState(false);
   const [isTakingLong, setIsTakingLong] = useState(false);
@@ -26,6 +28,18 @@ const App = () => {
     nodes: [],
     edges: [],
   });
+
+  let alertStatus: AlertStatus = "info";
+  let alertText = "";
+  if (!isServerError && !isTakingLong) {
+    alertText = "This may take a while, hold tight!";
+  } else if (!isServerError && isTakingLong) {
+    alertText =
+      " Crawling is taking longer than usual. There are so many links!";
+  } else if (isServerError) {
+    alertStatus = "error";
+    alertText = "Something went wrong";
+  }
 
   const ForceGraph = is3D ? ForceGraph3D : ForceGraph2D;
 
@@ -115,32 +129,11 @@ const App = () => {
                   </FormLabel>
                 </Flex>
 
-                {/* Generic alert */}
-                {!isServerError && isSubmitting && !isTakingLong && (
-                  <Alert status="info" mt={4}>
+                {((isSubmitting && alertText) ||
+                  (alertStatus === "error" && alertText)) && (
+                  <Alert status={alertStatus} mt={4}>
                     <AlertIcon />
-                    <AlertTitle mr={2}>
-                      This may take a while, hold tight!
-                    </AlertTitle>
-                  </Alert>
-                )}
-
-                {/* Taking long alert */}
-                {!isServerError && isSubmitting && isTakingLong && (
-                  <Alert status="info" mt={4}>
-                    <AlertIcon />
-                    <AlertTitle mr={2}>
-                      Crawling is taking longer than usual. There are so many
-                      links!
-                    </AlertTitle>
-                  </Alert>
-                )}
-
-                {/* Server error alert */}
-                {isServerError && (
-                  <Alert status="error" mt={4}>
-                    <AlertIcon />
-                    <AlertTitle mr={2}>Something went wrong</AlertTitle>
+                    <AlertTitle mr={2}>{alertText}</AlertTitle>
                   </Alert>
                 )}
               </Flex>

@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -72,13 +72,15 @@ func crawlHandler(c *gin.Context) {
 		return
 	}
 
-	_, err = net.DialTimeout("tcp", seed, time.Second)
+	// try accessing the seed url
+	_, err = http.Get(seed)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"errors": []gin.H{
 				{"field": "url", "message": "Invalid URL"},
 			},
 		})
+		fmt.Println(err.Error())
 		return
 	}
 

@@ -21,6 +21,7 @@ type AlertStatus = "info" | "error" | "success" | "warning" | undefined;
 const App = () => {
   const [isServerError, setServerError] = useState(false);
   const [isTakingLong, setIsTakingLong] = useState(false);
+  const [isPartial, setIsPartial] = useState(false);
   const { width, height } = useWindowSize();
   const [is3D, setIs3D] = useState(true);
 
@@ -29,17 +30,31 @@ const App = () => {
     edges: [],
   });
 
-  let alertStatus: AlertStatus = "info";
-  let alertText = "";
-  if (!isServerError && !isTakingLong) {
-    alertText = "This may take a while, hold tight!";
-  } else if (!isServerError && isTakingLong) {
-    alertText =
-      " Crawling is taking longer than usual. There are so many links!";
-  } else if (isServerError) {
-    alertStatus = "error";
-    alertText = "Something went wrong";
-  }
+  const generateAlert = (isSubmitting: boolean) => {
+    let alertStatus: AlertStatus = "info";
+    let alertText = "";
+
+    if (isSubmitting) {
+      if (isTakingLong) {
+        alertText =
+          "Crawling is taking longer than usual. There are so many links!";
+      } else {
+        alertText = "This may take a while, hold tight!";
+      }
+    } else if (isPartial) {
+      alertText = " Crawling was cut short, this is partial data";
+    } else if (isServerError) {
+      alertStatus = "error";
+      alertText = "Something went wrong";
+    }
+
+    return !alertText ? null : (
+      <Alert status={alertStatus} mt={4}>
+        <AlertIcon />
+        <AlertTitle mr={2}>{alertText}</AlertTitle>
+      </Alert>
+    );
+  };
 
   const ForceGraph = is3D ? ForceGraph3D : ForceGraph2D;
 
@@ -69,9 +84,12 @@ const App = () => {
             if (!url) return;
 
             setServerError(false);
+            setIsTakingLong(false);
+            setIsPartial(false);
 
             let errors: FieldError[] | undefined;
             let data: LinkData | undefined;
+            let partial: boolean = false;
 
             try {
               const timer = setTimeout(() => {
@@ -84,14 +102,15 @@ const App = () => {
 
               clearTimeout(timer);
 
-              ({ errors, data } = await response.json());
+              ({ errors, data, partial } = await response.json());
             } catch (err) {
               setServerError(true);
             }
 
             if (errors) setErrors(toErrorMap(errors));
-            else if (data) setData(data);
+            if (data) setData(data);
 
+            setIsPartial(partial);
             setIsTakingLong(false);
           }}
         >
@@ -129,13 +148,7 @@ const App = () => {
                   </FormLabel>
                 </Flex>
 
-                {((isSubmitting && alertText) ||
-                  (alertStatus === "error" && alertText)) && (
-                  <Alert status={alertStatus} mt={4}>
-                    <AlertIcon />
-                    <AlertTitle mr={2}>{alertText}</AlertTitle>
-                  </Alert>
-                )}
+                {generateAlert(isSubmitting)}
               </Flex>
             </Form>
           )}

@@ -7,14 +7,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/easonlin404/limit"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly/v2"
 	"github.com/joho/godotenv"
 )
+
+var reqLimit, maxDepth, timeoutSeconds int
 
 func homeHandler(c *gin.Context) {
 	c.String(http.StatusOK, "Here be dragons!")
@@ -70,6 +75,7 @@ func crawlHandler(c *gin.Context) {
 	edges := []edge{}
 	visited := make(map[string]int)
 	var mut sync.Mutex
+	stop := false
 
 	genID := createGenID()
 
@@ -79,11 +85,11 @@ func crawlHandler(c *gin.Context) {
 	visited[seed] = seedID
 
 	coll := colly.NewCollector(
-		colly.MaxDepth(3),
+		colly.MaxDepth(maxDepth),
 		colly.Async(true),
 	)
 
-	coll.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+	coll.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 5})
 
 	coll.SetRedirectHandler(func(req *http.Request, via []*http.Request) error {
 		var hrefRaw, hrefFromRaw string
@@ -134,6 +140,7 @@ func crawlHandler(c *gin.Context) {
 	})
 
 	coll.OnHTML("a[href]", func(e *colly.HTMLElement) {
+
 		hrefFrom := e.Request.URL.String()
 		hrefFromID := visited[hrefFrom]
 
@@ -160,19 +167,27 @@ func crawlHandler(c *gin.Context) {
 			edges = append(edges, edge{hrefFromID, hrefID})
 			mut.Unlock()
 
-			e.Request.Visit(href)
+			if !stop {
+				e.Request.Visit(href)
+			}
 		}
+	})
+
+	timeout := time.AfterFunc(time.Duration(timeoutSeconds)*time.Second, func() {
+		stop = true
 	})
 
 	err = coll.Visit(seed)
 	coll.Wait()
+
+	timeout.Stop()
 
 	if err != nil {
 		log.Println("Colly error: " + err.Error())
 		return
 	}
 
-	result, err := json.Marshal(gin.H{"data": linkData{nodes, edges}})
+	result, err := json.Marshal(gin.H{"data": linkData{nodes, edges}, "partial": stop})
 	if err != nil {
 		log.Println("failed to serialize response:", err)
 		return
@@ -188,11 +203,32 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
+	reqLimitStr := os.Getenv("REQUEST_LIMIT")
+	maxDepthStr := os.Getenv("MAX_DEPTH")
+	timeoutSecondsStr := os.Getenv("TIMEOUT_S")
+
+	if reqLimitStr == "" || maxDepthStr == "" || timeoutSecondsStr == "" {
+		log.Fatal("Program is missing critical Environment Variables: ")
+	}
+
+	reqLimit, _ = strconv.Atoi(reqLimitStr)
+	maxDepth, _ = strconv.Atoi(maxDepthStr)
+	timeoutSeconds, _ = strconv.Atoi(timeoutSecondsStr)
+
+	log.Println("--- Link-Vis parsed environment variables:")
+	log.Printf("REQUEST_LIMIT: %d\n", reqLimit)
+	log.Printf("MAX_DEPTH: %d\n", maxDepth)
+	log.Printf("TIMEOUT_S: %d\n", timeoutSeconds)
+	log.Println()
+
+	ginMode := os.Getenv("GIN_MODE")
 	corsOriginsStr := os.Getenv("CORS_ORIGIN")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+
+	gin.SetMode(ginMode)
 
 	// setup gin router
 	router := gin.Default()
@@ -200,6 +236,8 @@ func main() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: strings.Split(corsOriginsStr, ";"),
 	}))
+
+	router.Use(limit.Limit(reqLimit))
 
 	router.GET("/", homeHandler)
 	router.GET("/crawl", crawlHandler)

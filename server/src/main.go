@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -68,10 +69,12 @@ func crawlHandler(c *gin.Context) {
 	nodes := []node{}
 	edges := []edge{}
 	visited := make(map[string]int)
+	var mut sync.Mutex
 
 	genID := createGenID()
 
 	seedID := genID()
+	// not a concurrent access
 	nodes = append(nodes, node{seedID, seed})
 	visited[seed] = seedID
 
@@ -80,7 +83,7 @@ func crawlHandler(c *gin.Context) {
 		colly.Async(true),
 	)
 
-	coll.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 2})
+	coll.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
 
 	coll.SetRedirectHandler(func(req *http.Request, via []*http.Request) error {
 		var hrefRaw, hrefFromRaw string
@@ -113,6 +116,9 @@ func crawlHandler(c *gin.Context) {
 				hrefFromID = genID()
 			}
 
+			// concurrent writes
+			mut.Lock()
+
 			visited[hrefFrom] = hrefFromID
 			if i == len(via)-1 {
 				visited[href] = hrefID
@@ -121,6 +127,7 @@ func crawlHandler(c *gin.Context) {
 			nodes = append(nodes, node{hrefID, href})
 			nodes = append(nodes, node{hrefFromID, hrefFrom})
 			edges = append(edges, edge{hrefFromID, hrefID})
+			mut.Unlock()
 		}
 
 		return nil
@@ -136,13 +143,22 @@ func crawlHandler(c *gin.Context) {
 			return
 		}
 
-		if _, ok := visited[href]; !ok {
+		hrefID, ok := visited[href]
+
+		// concurrent writes
+		mut.Lock()
+		if ok {
+			// already visited
+			edges = append(edges, edge{hrefFromID, hrefID})
+			mut.Unlock()
+		} else {
 			hrefID := genID()
 			visited[href] = hrefID
 
 			nodes = append(nodes, node{hrefFromID, hrefFrom})
 			nodes = append(nodes, node{hrefID, href})
 			edges = append(edges, edge{hrefFromID, hrefID})
+			mut.Unlock()
 
 			e.Request.Visit(href)
 		}
@@ -153,6 +169,7 @@ func crawlHandler(c *gin.Context) {
 
 	if err != nil {
 		log.Println("Colly error: " + err.Error())
+		return
 	}
 
 	result, err := json.Marshal(gin.H{"data": linkData{nodes, edges}})

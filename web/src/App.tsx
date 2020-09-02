@@ -20,7 +20,7 @@ type AlertStatus = "info" | "error" | "success" | "warning" | undefined;
 
 const App = () => {
   const [isServerError, setServerError] = useState(false);
-  const [isTakingLong, setIsTakingLong] = useState(false);
+  const [isTakingLong, setIsTakingLong] = useState(0);
   const [isPartial, setIsPartial] = useState(false);
   const { width, height } = useWindowSize();
   const [is3D, setIs3D] = useState(true);
@@ -35,10 +35,10 @@ const App = () => {
     let alertText = "";
 
     if (isSubmitting) {
-      if (isTakingLong) {
+      if (isTakingLong === 2) {
         alertText =
           "Crawling is taking longer than usual. There are so many links!";
-      } else {
+      } else if (isTakingLong === 1) {
         alertText = "This may take a while, hold tight!";
       }
     } else if (isPartial) {
@@ -84,7 +84,7 @@ const App = () => {
             if (!url) return;
 
             setServerError(false);
-            setIsTakingLong(false);
+            setIsTakingLong(0);
             setIsPartial(false);
 
             let errors: FieldError[] | undefined;
@@ -92,15 +92,20 @@ const App = () => {
             let partial: boolean = false;
 
             try {
-              const timer = setTimeout(() => {
-                setIsTakingLong(true);
+              const timer1 = setTimeout(() => {
+                setIsTakingLong(1);
+              }, 5 * 1000);
+
+              const timer2 = setTimeout(() => {
+                setIsTakingLong(2);
               }, 20 * 1000);
 
               const response = await fetch(
                 `${process.env.REACT_APP_API_URL}/crawl?seed=${encodeURI(url)}`
               );
 
-              clearTimeout(timer);
+              clearTimeout(timer1);
+              clearTimeout(timer2);
 
               ({ errors, data, partial } = await response.json());
             } catch (err) {
@@ -111,7 +116,7 @@ const App = () => {
             if (data) setData(data);
 
             setIsPartial(partial);
-            setIsTakingLong(false);
+            setIsTakingLong(0);
           }}
         >
           {({ isSubmitting, values: { url } }) => (

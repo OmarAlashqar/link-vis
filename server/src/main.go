@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -62,6 +63,16 @@ func createGenID() func() int {
 
 func crawlHandler(c *gin.Context) {
 	seed, err := normalizeURL(c.Query("seed"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"errors": []gin.H{
+				{"field": "url", "message": "Invalid URL"},
+			},
+		})
+		return
+	}
+
+	_, err = net.DialTimeout("tcp", seed, time.Second)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"errors": []gin.H{

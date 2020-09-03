@@ -17,11 +17,10 @@ import { FieldError, toErrorMap } from "./utils/toErrorMap";
 import { useWindowSize } from "./utils/useWindowSize";
 
 type AlertStatus = "info" | "error" | "success" | "warning" | undefined;
+type AlertMode = "hint" | "error" | "long-1" | "long-2" | "partial" | "hidden";
 
 const App = () => {
-  const [isServerError, setServerError] = useState(false);
-  const [isTakingLong, setIsTakingLong] = useState(0);
-  const [isPartial, setIsPartial] = useState(false);
+  const [alertMode, setAlertMode] = useState<AlertMode>("hint");
   const { width, height } = useWindowSize();
   const [is3D, setIs3D] = useState(true);
 
@@ -30,31 +29,22 @@ const App = () => {
     edges: [],
   });
 
-  const generateAlert = (isSubmitting: boolean) => {
-    let alertStatus: AlertStatus = "info";
-    let alertText = "";
+  let alertStatus: AlertStatus = "info";
+  let alertText = "";
 
-    if (isSubmitting) {
-      if (isTakingLong === 2) {
-        alertText =
-          "Crawling is taking longer than usual. There are so many links!";
-      } else if (isTakingLong === 1) {
-        alertText = "This may take a while, hold tight!";
-      }
-    } else if (isPartial) {
-      alertText = " Crawling was cut short, this is partial data";
-    } else if (isServerError) {
-      alertStatus = "error";
-      alertText = "Something went wrong";
-    }
-
-    return !alertText ? null : (
-      <Alert status={alertStatus} mt={4}>
-        <AlertIcon />
-        <AlertTitle mr={2}>{alertText}</AlertTitle>
-      </Alert>
-    );
-  };
+  if (alertMode === "hint") {
+    alertText = "Type in a website URL to visualize all the links it leads to!";
+  } else if (alertMode === "error") {
+    alertStatus = "error";
+    alertText = "Something went wrong";
+  } else if (alertMode === "long-1") {
+    alertText = "This may take a while, hold tight!";
+  } else if (alertMode === "long-2") {
+    alertText =
+      "Crawling is taking longer than usual. There are so many links!";
+  } else if (alertMode === "partial") {
+    alertText = " Crawling was cut short, this is partial data";
+  }
 
   const ForceGraph = is3D ? ForceGraph3D : ForceGraph2D;
 
@@ -83,9 +73,7 @@ const App = () => {
           onSubmit={async ({ url }, { setErrors }) => {
             if (!url) return;
 
-            setServerError(false);
-            setIsTakingLong(0);
-            setIsPartial(false);
+            setAlertMode("hidden");
 
             let errors: FieldError[] | undefined;
             let data: LinkData | undefined;
@@ -93,11 +81,11 @@ const App = () => {
 
             try {
               const timer1 = setTimeout(() => {
-                setIsTakingLong(1);
+                setAlertMode("long-1");
               }, 5 * 1000);
 
               const timer2 = setTimeout(() => {
-                setIsTakingLong(2);
+                setAlertMode("long-2");
               }, 20 * 1000);
 
               const response = await fetch(
@@ -109,14 +97,15 @@ const App = () => {
 
               ({ errors, data, partial } = await response.json());
             } catch (err) {
-              setServerError(true);
+              setAlertMode("error");
+              return;
             }
 
             if (errors) setErrors(toErrorMap(errors));
             if (data) setData(data);
 
-            setIsPartial(partial);
-            setIsTakingLong(0);
+            if (partial) setAlertMode("partial");
+            else setAlertMode("hidden");
           }}
         >
           {({ isSubmitting, values: { url } }) => (
@@ -153,7 +142,12 @@ const App = () => {
                   </FormLabel>
                 </Flex>
 
-                {generateAlert(isSubmitting)}
+                {!alertText ? null : (
+                  <Alert status={alertStatus} mt={4}>
+                    <AlertIcon />
+                    <AlertTitle mr={2}>{alertText}</AlertTitle>
+                  </Alert>
+                )}
               </Flex>
             </Form>
           )}

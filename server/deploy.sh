@@ -20,7 +20,7 @@ if [ "$SURE" == "${SURE#[Yy]}" ] ;then
   exit 1
 fi
 
-docker build -t oalashqar/link-vis-server:$VERSION .
-docker push oalashqar/link-vis-server:$VERSION
+docker build -t oalashqar/link-vis-api:$VERSION .
+docker push oalashqar/link-vis-api:$VERSION
 
-ssh $REMOTE "docker pull oalashqar/link-vis-server:$VERSION && docker tag oalashqar/link-vis-server:$VERSION dokku/link-vis-server:$VERSION && dokku deploy link-vis-server $VERSION"
+ssh $REMOTE "docker pull oalashqar/link-vis-api:$VERSION && docker tag oalashqar/link-vis-api:$VERSION dokku/link-vis-api:$VERSION && dokku deploy link-vis-api $VERSION"

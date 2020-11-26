@@ -22,9 +22,6 @@ RUN go build -o dist/main src/*.go
 # no longer need the Golang tooling, start with a smaller image
 FROM scratch
 
-# program environment variables
-COPY .env.production .env
-
 # SSL certificates since "scratch" has none
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 

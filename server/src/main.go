@@ -213,7 +213,7 @@ func main() {
 	// load environment variables
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Could not find .env file in directory, moving on without it...")
 	}
 
 	reqLimitStr := os.Getenv("REQUEST_LIMIT")

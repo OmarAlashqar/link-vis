@@ -62,6 +62,8 @@ const App = () => {
             linkDirectionalArrowLength={3.5}
             linkDirectionalArrowRelPos={1}
             graphData={{ nodes, links: edges }}
+            warmupTicks={100}
+            cooldownTicks={0}
           />
         </Flex>
         <Footer />

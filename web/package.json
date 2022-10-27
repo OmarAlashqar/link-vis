@@ -17,8 +17,8 @@
     "formik": "2.1.5",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
-    "react-force-graph": "1.36.7",
-    "react-scripts": "3.4.3",
+    "react-force-graph": "1.41.14",
+    "react-scripts": "5.0.1",
     "typescript": "~3.7.2"
   },
   "scripts": {
